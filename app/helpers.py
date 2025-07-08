@@ -9,6 +9,7 @@ from yt_dlp import YoutubeDL
 
 from app.config import settings
 
+
 async def get_video_info(url: str, loop):
     ydl_opts = {
         'quiet': True,
@@ -34,12 +35,17 @@ def get_video_duration(path):
 
 
 def compress_video(input_path: str, output_path: str, target_size_mb: int = 25):
+    if platform.system() == 'Windows':
+        ffmpeg = settings.FFMPEG_PATH
+    else:
+        ffmpeg = "ffmpeg"
+
     duration = get_video_duration(input_path)
 
     target_bitrate = (target_size_mb * 8192) / duration
 
     command = [
-        settings.FFMPEG_PATH,
+        ffmpeg,
         "-i", input_path,
         "-c:v", "libx264",
         "-b:v", f"{int(target_bitrate)}k",
@@ -48,11 +54,10 @@ def compress_video(input_path: str, output_path: str, target_size_mb: int = 25):
         "-f", "mp4",
         "/dev/null" if platform.system() != "Windows" else "NUL"
     ]
-    # result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    subprocess.run(command)
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     command = [
-        settings.FFMPEG_PATH,
+        ffmpeg,
         "-i", input_path,
         "-c:v", "libx264",
         "-b:v", f"{int(target_bitrate)}k",
@@ -61,12 +66,10 @@ def compress_video(input_path: str, output_path: str, target_size_mb: int = 25):
         "-b:a", "128k",
         output_path
     ]
-    subprocess.run(command)
-    # result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # print()
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
 
 def render_bar(percent_str: str) -> str:
-
     try:
         percent = float(percent_str.replace('%', '').strip())
     except:
@@ -78,6 +81,7 @@ def render_bar(percent_str: str) -> str:
 
     bar = '█' * filled_blocks + '░' * empty_blocks
     return f"[{bar}]"
+
 
 def progress_hook_factory(callback, loop):
     last_update = 0
@@ -101,8 +105,8 @@ def progress_hook_factory(callback, loop):
             speed = d.get('_speed_str', '').strip()
             eta = d.get('_eta_str', '').strip()
 
-
             bar = render_bar(percent)
-            asyncio.run_coroutine_threadsafe(update_progress(f"📥 Скачивание...\n{bar} {percent} ({speed}, ETA: {eta})"), loop)
+            asyncio.run_coroutine_threadsafe(update_progress(f"📥 Скачивание...\n{bar} {percent} ({speed}, ETA: {eta})"),
+                                             loop)
 
     return progress_hook

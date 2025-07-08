@@ -1,0 +1,9 @@
+services:
+  bot_bana_net:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bot_bana_net:latest
+    volumes:
+      - ./.env:/.env:ro
