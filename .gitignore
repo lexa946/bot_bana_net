@@ -1,0 +1,6 @@
+.env
+*.log
+ffmpeg_local
+download
+.venv
+.idea
