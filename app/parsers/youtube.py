@@ -50,7 +50,7 @@ class YouTubeParser(BaseParser):
         streams = await asyncio.to_thread(lambda: self._yt.streams.fmt_streams)
         audio_stream = await asyncio.to_thread(self._get_audio_stream, streams)
         duration = timedelta(milliseconds=int(audio_stream.durationMs)).seconds
-        title = f'{self._yt.author}/{self._yt.title.replace(" ", "_")}.mp4'
+        title = f'{self._yt.author.replace(" ", "_")}/{self._yt.title.replace(" ", "_")}.mp4'
 
 
 
