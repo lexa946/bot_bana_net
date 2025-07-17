@@ -52,7 +52,9 @@ class YouTubeParser(BaseParser):
         duration = timedelta(milliseconds=int(audio_stream.durationMs)).seconds
         title = f'{self._yt.author}/{self._yt.title.replace(" ", "_")}.mp4'
 
-        if s3_client.file_exists(title):
+
+
+        if await asyncio.to_thread(s3_client.file_exists, title):
             return f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{title}"
 
 
@@ -89,7 +91,7 @@ class YouTubeParser(BaseParser):
         async with aiofiles.open(out_path, 'rb') as f:
             content = await f.read()
 
-        s3_url = s3_client.upload_file(
+        s3_url = await asyncio.to_thread(s3_client.upload_file,
             key=title,
             body=BytesIO(content),
             size=len(content),
