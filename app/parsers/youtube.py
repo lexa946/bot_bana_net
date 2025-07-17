@@ -50,12 +50,19 @@ class YouTubeParser(BaseParser):
         streams = await asyncio.to_thread(lambda: self._yt.streams.fmt_streams)
         audio_stream = await asyncio.to_thread(self._get_audio_stream, streams)
         duration = timedelta(milliseconds=int(audio_stream.durationMs)).seconds
-        title = f'{self._yt.author.replace(" ", "_")}/{self._yt.title.replace(" ", "_")}.mp4'
+
+        author = self._yt.author.replace(" ", "_")
+        title = self._yt.title.replace(" ", "_")
+        for char_ in ["#", "`", "'", '"']:
+            author = author.replace(char_, "")
+            title = title.replace(char_, "_")
+
+        s3_key = f'{author}/{title}.mp4'
 
 
 
         if await asyncio.to_thread(s3_client.file_exists, title):
-            return f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{title}"
+            return f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{s3_key}"
 
 
         video_streams = list(filter(self._format_filter, streams))
@@ -92,7 +99,7 @@ class YouTubeParser(BaseParser):
             content = await f.read()
 
         s3_url = await asyncio.to_thread(s3_client.upload_file,
-            key=title,
+            key=s3_key,
             body=BytesIO(content),
             size=len(content),
         )
