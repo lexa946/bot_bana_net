@@ -34,6 +34,7 @@ async def delete_message(callback: CallbackQuery, ):
 
 @router.callback_query(F.data.startswith("yes"))
 async def download_video(callback: CallbackQuery):
+    await callback.message.edit_text("Подожди ёбана...")
     url = callback.message.reply_to_message.text
     file_url = ""
     if "instagram" in url:
