@@ -4,3 +4,4 @@ ffmpeg_local
 download
 .venv
 .idea
+test.py
