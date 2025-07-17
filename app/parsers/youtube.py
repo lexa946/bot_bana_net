@@ -46,7 +46,7 @@ class YouTubeParser(BaseParser):
 
         author = self._yt.author.replace(" ", "_")
         title = self._yt.title.replace(" ", "_")
-        for char_ in ["#", "`", "'", '"']:
+        for char_ in ["#", "`", "'", '"', "@", "|", "\\", "/"]:
             author = author.replace(char_, "")
             title = title.replace(char_, "_")
 
