@@ -9,15 +9,9 @@ from aiogram.types import Message
 from pytubefix import Stream, YouTube, StreamQuery
 
 from app.config import settings
-from app.helpers import combine_audio_and_video
-# from app.models.status import VideoDownloadStatus
-# from app.models.storage import DOWNLOAD_TASKS, DownloadTask
+
 from app.parsers.base import BaseParser
 from app.s3.client import s3_client
-
-
-# from app.schemas.main import SVideo, SVideoFormatsResponse, SVideoDownload
-# from app.utils.video_utils import save_preview_on_s3, combine_audio_and_video
 
 
 class YouTubeParser(BaseParser):
@@ -31,7 +25,8 @@ class YouTubeParser(BaseParser):
     def _format_filter(stream: Stream):
         return (
                 stream.type == "video" and
-                stream.video_codec.startswith("avc1")
+                stream.video_codec.startswith("avc1") and
+                len(stream.video_codec) > 1
         )
 
     @staticmethod
@@ -48,8 +43,6 @@ class YouTubeParser(BaseParser):
         download_path = Path(settings.DOWNLOAD_FOLDER) / self._yt.author
 
         streams = await asyncio.to_thread(lambda: self._yt.streams.fmt_streams)
-        audio_stream = await asyncio.to_thread(self._get_audio_stream, streams)
-        duration = timedelta(milliseconds=int(audio_stream.durationMs)).seconds
 
         author = self._yt.author.replace(" ", "_")
         title = self._yt.title.replace(" ", "_")
@@ -59,20 +52,12 @@ class YouTubeParser(BaseParser):
 
         s3_key = f'{author}/{title}.mp4'
 
-
-
         if await asyncio.to_thread(s3_client.file_exists, title):
             return f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{s3_key}"
 
 
-        video_streams = list(filter(self._format_filter, streams))
-
-        video_stream = video_streams[0]
-        for stream in video_streams:
-            current_res = int(video_stream.resolution[:-1])
-            next_resolution = int(stream.resolution[:-1])
-            if current_res > next_resolution >= 720:
-                video_stream = stream
+        video_stream = next(filter(self._format_filter, streams))
+        duration = timedelta(milliseconds=int(video_stream.durationMs)).seconds
 
         video_path = Path(await asyncio.to_thread(
             video_stream.download,
@@ -80,22 +65,8 @@ class YouTubeParser(BaseParser):
             filename_prefix=f"{video_uuid}_video_"
         ))
 
-        audio_path = Path(await asyncio.to_thread(
-            audio_stream.download,
-            output_path=download_path.as_posix(),
-            filename_prefix=f"{video_uuid}_audio_"
-        ))
 
-        out_path = video_path.with_name(video_path.stem + "_out.mp4")
-        await asyncio.to_thread(combine_audio_and_video,
-                                video_path.as_posix(),
-                                audio_path.as_posix(),
-                                out_path.as_posix()
-                                )
-        audio_path.unlink(missing_ok=True)
-        video_path.unlink(missing_ok=True)
-
-        async with aiofiles.open(out_path, 'rb') as f:
+        async with aiofiles.open(video_path, 'rb') as f:
             content = await f.read()
 
         s3_url = await asyncio.to_thread(s3_client.upload_file,
@@ -103,6 +74,7 @@ class YouTubeParser(BaseParser):
             body=BytesIO(content),
             size=len(content),
         )
+        video_path.unlink(missing_ok=True)
         return s3_url
 
 

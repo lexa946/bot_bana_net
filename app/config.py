@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     BOT_TOKEN: str
     DOWNLOAD_FOLDER: str
-    FFMPEG_PATH: str
     MAX_DURATION_VIDEO: int
 
     S3_ACCESS_KEY: str
