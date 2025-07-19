@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     BOT_TOKEN: str
     DOWNLOAD_FOLDER: str
-    MAX_DURATION_VIDEO: int
+    PARSER_API_BASE_URL: str
 
     S3_ACCESS_KEY: str
     S3_SECRET_KEY: str
