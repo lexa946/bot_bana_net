@@ -84,4 +84,5 @@ async def download_video(callback: CallbackQuery):
         await asyncio.to_thread(stream_file.send_chunk, chunk)
     minio_file_info = stream_file.complete()
 
-    await callback.message.edit_text(minio_file_info.location)
+    await callback.message.delete()
+    await callback.message.answer(minio_file_info.location)
