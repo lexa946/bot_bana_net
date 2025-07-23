@@ -11,9 +11,6 @@ class Settings(BaseSettings):
     S3_ENDPOINT_URL: str
     S3_BUCKET_NAME: str
 
-    INSTAGRAM_CSRFTOKEN: str
-    INSTAGRAM_SESSIONID: str
-
     class Config:
         env_file = '.env'
 
