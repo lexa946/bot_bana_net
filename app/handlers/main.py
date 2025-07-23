@@ -14,8 +14,7 @@ from app.handlers.filters import video_filter
 
 from app.keyboards.main import yes_no_keyboard
 from app.messages import AnswerMessage
-from app.s3.client import s3_client
-
+from app.s3.client import s3_client, S3StreamFile
 
 router = Router()
 
@@ -52,29 +51,26 @@ async def download_video(callback: CallbackQuery):
         await callback.message.edit_text(AnswerMessage.TOO_MUCH_SIZE)
         return
 
-    author = str(uuid4())
-    title = video_info['title'].replace(" ", "_")
-    for char_ in REMOVE_CHARS_FROM_YOUTUBE:
-        author = author.replace(char_, "")
-        title = title.replace(char_, "_")
+    s3_key = "/".join(video_info['preview_url'].replace("https://", "").split("/")[2:])[:-4] + ".mp4"
 
-    # s3_key = f'{author}/{title}.mp4'
-    # s3_key = f'{title}.mp4'.strip("_"+"".join(REMOVE_CHARS_FROM_YOUTUBE))
-    s3_key = f'{str(uuid4())}.mp4'
-
-    if await asyncio.to_thread(s3_client.file_exists, title):
-        return f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{s3_key}"
+    if await asyncio.to_thread(s3_client.file_exists, s3_key):
+        await callback.message.edit_text(f"{s3_client.config['endpoint_url']}/{s3_client.bucket_name}/{s3_key}")
+        return
 
     download_status = await ApiManager.start_download(
         video_info['url'],
         video_info['formats'][0]['video_format_id'],
         video_info['formats'][0]['audio_format_id'],
     )
+
     while download_status['status'] == "Pending":
         await asyncio.sleep(1)
         download_status = await ApiManager.get_status(download_status['task_id'])
         try:
-            await callback.message.edit_text(f"Скачиваю видик: {download_status['percent']} %")
+            await callback.message.edit_text(AnswerMessage.PROGRESS_BAR.replace(
+                "{download_status}",
+                download_status['percent'])
+            )
         except Exception as e:
             ...
 
@@ -82,30 +78,10 @@ async def download_video(callback: CallbackQuery):
         await callback.message.edit_text(AnswerMessage.ERROR)
         raise ValueError("Download Error")
 
-    part_number = 1
-    parts = []
-
-    upload_id = s3_client.client._create_multipart_upload(
-        s3_client.bucket_name, s3_key, {}
-    )
+    stream_file = S3StreamFile(s3_client.client, s3_client.bucket_name, s3_key)
 
     async for chunk in ApiManager.get_video(download_status['task_id']):
-        etag = await asyncio.to_thread(s3_client.client._upload_part,
-            s3_client.bucket_name,
-            s3_key,
-            chunk,
-            {},
-            upload_id,
-            part_number,
-        )
-        parts.append(Part(part_number, etag))
-        part_number += 1
+        await asyncio.to_thread(stream_file.send_chunk, chunk)
+    minio_file_info = stream_file.complete()
 
-    minio_file_info = s3_client.client._complete_multipart_upload(
-        s3_client.bucket_name,
-        s3_key,
-        upload_id,
-        parts
-    )
-    await callback.message.delete()
-    await callback.message.answer(minio_file_info.location)
+    await callback.message.edit_text(minio_file_info.location)

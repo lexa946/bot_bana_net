@@ -1,7 +1,6 @@
-from typing import BinaryIO
-
 import urllib3
 from minio import Minio
+from minio.datatypes import Part
 from minio.error import S3Error
 
 from app.config import settings
@@ -23,92 +22,9 @@ class S3Client:
             http_client=urllib3.PoolManager(cert_reqs='CERT_NONE')
         )
 
-
         # Создаем бакет, если его нет
         if not self.client.bucket_exists(bucket_name):
             self.client.make_bucket(bucket_name)
-
-    async def upload_video(self, task_id: str, object_name: str):
-        upload_id = None
-        parts = []
-        current_part = b""
-        part_number = 1
-
-        try:
-            # 1. Инициируем Multipart Upload
-            upload_id = self.client._create_multipart_upload(
-                self.bucket_name, object_name
-            )
-
-            # 2. Получаем потоковые данные и накапливаем чанки
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://example.com/video/{task_id}") as resp:
-                    async for chunk in resp.content.iter_chunked(1024 * 8):  # Чанки по 8 КБ
-                        current_part += chunk
-
-                        # Если накопили достаточно данных для части (5 МБ) → загружаем
-                        if len(current_part) >= self.part_size:
-                            etag = self.client._upload_part(
-                                self.bucket_name,
-                                object_name,
-                                upload_id,
-                                part_number,
-                                current_part
-                            )
-                            parts.append({"PartNumber": part_number, "ETag": etag})
-                            part_number += 1
-                            current_part = b""  # Сбрасываем буфер
-
-            # 3. Загружаем последнюю часть (если остались данные)
-            if current_part:
-                etag = self.client._upload_part(
-                    self.bucket_name,
-                    object_name,
-                    upload_id,
-                    part_number,
-                    current_part
-                )
-                parts.append({"PartNumber": part_number, "ETag": etag})
-
-            # 4. Завершаем загрузку
-            self.client._complete_multipart_upload(
-                self.bucket_name,
-                object_name,
-                upload_id,
-                parts
-            )
-            print(f"Видео {object_name} успешно загружено!")
-
-        except Exception as e:
-            # Отменяем загрузку в случае ошибки
-            if upload_id:
-                self.client._abort_multipart_upload(
-                    self.bucket_name, object_name, upload_id
-                )
-            raise e
-
-    def upload_file(self, key: str, body: BinaryIO, size:int) -> str:
-        """Загружает файл в Minio и возвращает его URL"""
-        try:
-            self.client.put_object(
-                bucket_name=self.bucket_name,
-                object_name=key,
-                data=body,
-                length=size,
-            )
-            return f"{self.config['endpoint_url']}/{self.bucket_name}/{key}"
-        except S3Error as err:
-            print(f"Ошибка при загрузке файла: {err}")
-            return None
-
-    def get_file(self, key):
-        """Получает файл из Minio"""
-        try:
-            response = self.client.get_object(self.bucket_name, key)
-            return response.read()  # Читаем содержимое файла
-        except S3Error as err:
-            print(f"Ошибка при получении файла: {err}")
-            return None
 
     def file_exists(self, key):
         try:
@@ -118,6 +34,32 @@ class S3Client:
             if err.code == "NoSuchKey":
                 return False
             raise err
+
+
+class S3StreamFile:
+    def __init__(self, client: Minio, bucket_name: str, key: str):
+        self.client = client
+        self.bucket_name = bucket_name
+        self.key = key
+
+        self.__part_number = 1
+        self.__parts = []
+
+        self.__upload_id = client._create_multipart_upload(
+            bucket_name, key, {}
+        )
+
+    def send_chunk(self, chunk):
+        etag = s3_client.client._upload_part(self.bucket_name, self.key, chunk, {}, self.__upload_id,
+                                             self.__part_number)
+        self.__parts.append(Part(self.__part_number, etag))
+        self.__part_number += 1
+
+    def complete(self):
+        file_info = s3_client.client._complete_multipart_upload(
+            self.bucket_name, self.key, self.__upload_id, self.__parts
+        )
+        return file_info
 
 
 s3_client = S3Client(

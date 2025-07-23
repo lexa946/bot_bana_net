@@ -9,6 +9,4 @@ COPY app ./app
 COPY *.py ./
 
 
-
-
 CMD ["python", "main.py"]

@@ -20,9 +20,11 @@ class ApiManager:
         async with aiohttp.ClientSession() as session:
             if type_req == 'GET':
                 async with session.get(method_url+path, params=params) as resp:
+                    resp.raise_for_status()
                     return await resp.json()
             elif type_req == 'POST':
                 async with session.post(method_url+path, json=json) as resp:
+                    resp.raise_for_status()
                     return await resp.json()
 
     @classmethod
