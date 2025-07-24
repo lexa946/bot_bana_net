@@ -24,15 +24,14 @@ REMOVE_CHARS_FROM_YOUTUBE = ["#", "`", "'", '"', "@", "|", "\\", "/"]
 @router.message(Command("help"))
 async def help(message: Message):
     await message.answer("Если вы столкнулись с трудностями при работе с ботом, "
-                         "тогда попробуйте вызвать /menu и повторить свои действия. "
-                         "Если трудности повторяются тогда необходимо обратиться к @PozharAlex "
+                         "тогда попробуйте обратиться к @PozharAlex "
                          "и описать цикл ваших действий приводимых к ошибкам работы. "
                          "Это необходимо для дальнейшего устранения и улучшения работы бота.")
 
 
 @router.message(video_filter)
 async def handle_url(message: Message):
-    await message.reply("Скачать видик?", reply_markup=yes_no_keyboard())
+    await message.reply(AnswerMessage.NEED_DOWNLOAD, reply_markup=yes_no_keyboard())
 
 
 @router.callback_query(F.data == "no")
@@ -68,8 +67,7 @@ async def download_video(callback: CallbackQuery):
         download_status = await ApiManager.get_status(download_status['task_id'])
         try:
             await callback.message.edit_text(AnswerMessage.PROGRESS_BAR.replace(
-                "{download_status}",
-                download_status['percent'])
+                "{download_status}", str(download_status['percent']))
             )
         except Exception as e:
             ...
