@@ -6,7 +6,6 @@ def video_filter(message: Message):
     if not url.startswith("https://"):
         return False
 
-    # if "youtube.com/shorts" in url:
     if "youtube.com" in url:
         return True
     elif "instagram" in url:

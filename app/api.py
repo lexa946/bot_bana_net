@@ -29,7 +29,7 @@ class ApiManager:
 
     @classmethod
     async def get_formats(cls, url):
-        return await cls._send_request(cls.GET_FORMAT_URL, type_req='GET', params={"url": url})
+        return await cls._send_request(cls.GET_FORMAT_URL, type_req='POST', json={"url": url})
 
     @classmethod
     async def get_status(cls, task_id):
