@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram import F
 from minio.datatypes import Part
 
-from app.api import ApiManager
+from app.api import ApiManager, ApiStatuses
 
 from app.handlers.filters import video_filter
 
@@ -62,7 +62,7 @@ async def download_video(callback: CallbackQuery):
         video_info['formats'][0]['audio_format_id'],
     )
 
-    while download_status['status'] == "Pending":
+    while download_status['status'] == ApiStatuses.PENDING:
         await asyncio.sleep(1)
         download_status = await ApiManager.get_status(download_status['task_id'])
         try:
@@ -72,7 +72,7 @@ async def download_video(callback: CallbackQuery):
         except Exception as e:
             ...
 
-    if download_status['status'] != "Completed":
+    if download_status['status'] != ApiStatuses.COMPLETED:
         await callback.message.edit_text(AnswerMessage.ERROR)
         raise ValueError("Download Error")
 

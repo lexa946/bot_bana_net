@@ -1,14 +1,21 @@
 from io import BytesIO
+from typing import Any
 
 import aiohttp
 
 from app.config import settings
 
+class ApiStatuses:
+    PENDING = "pending"
+    DONE = "done"
+    ERROR = "error"
+    COMPLETED = "completed"
+
 
 class ApiManager:
     BASE_URL = settings.PARSER_API_BASE_URL
-    GET_FORMAT_URL = f"{BASE_URL}/get-formats/"
-    START_DOWNLOAD_URL = f"{BASE_URL}/start-download/"
+    GET_FORMAT_URL = f"{BASE_URL}/get-formats"
+    START_DOWNLOAD_URL = f"{BASE_URL}/start-download"
     DOWNLOAD_STATUS_URL = f"{BASE_URL}/download-status/"
     GET_VIDEO_URL = f"{BASE_URL}/get-video/"
 
@@ -16,7 +23,7 @@ class ApiManager:
     async def _send_request(cls, method_url, type_req: str,
                             json: dict = None,
                             params: dict = None,
-                            path: str = ""):
+                            path: str = "") -> Any:
         async with aiohttp.ClientSession() as session:
             if type_req == 'GET':
                 async with session.get(method_url+path, params=params) as resp:
@@ -26,6 +33,7 @@ class ApiManager:
                 async with session.post(method_url+path, json=json) as resp:
                     resp.raise_for_status()
                     return await resp.json()
+            return None
 
     @classmethod
     async def get_formats(cls, url):
